@@ -65,6 +65,15 @@ function Cloudant(options, callback) {
     options.https = false;
   }
 
+  function toAxiosResponse(res) {
+    return {
+      status: res.statusCode,
+      statusText: res.statusMessage,
+      headers: res.headers,
+      request: res.request
+    };
+  }
+
   debug('Creating Cloudant client with options: %j', options);
   var cloudantClient = new Client(options);
   var adapter = function(cfg) {
@@ -73,21 +82,23 @@ function Cloudant(options, callback) {
       cloudantClient.request(cfg, (err, result) => {
         var data = {};
         if (err) {
-          debug(err);
+          debug('Cloudant request failed: %s', err.message);
+          var errResponse = Object.assign(toAxiosResponse(err.response), {
+            data: data,
+            config: cfg
+          });
+          settle(resolve, reject, errResponse);
+          return;
         }
         try {
           data = JSON.parse(result.body);
         } catch (e) {
           debug(e);
         }
-        var response = {
+        var response = Object.assign(toAxiosResponse(result), {
           data: data,
-          status: result.statusCode,
-          statusText: result.statusMessage,
-          headers: result.headers,
-          config: cfg,
-          request: result.request
-        };
+          config: cfg
+        });
         settle(resolve, reject, response);
       });
     });
