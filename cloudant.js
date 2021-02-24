@@ -18,6 +18,7 @@ module.exports = Cloudant;
 var Nano = require('nano');
 var debug = require('debug')('cloudant:cloudant');
 var nanodebug = require('debug')('nano');
+var settle = require('axios/lib/core/settle');
 
 const Client = require('./lib/client.js');
 const BasePlugin = require('./plugins/base.js');
@@ -66,14 +67,39 @@ function Cloudant(options, callback) {
 
   debug('Creating Cloudant client with options: %j', options);
   var cloudantClient = new Client(options);
-  var cloudantRequest = function(req, callback) {
-    return cloudantClient.request(req, callback);
+  var adapter = function(cfg) {
+    cfg.url = cfg.url + '?' + cfg.paramsSerializer(cfg.params);
+    return new Promise(function(resolve, reject) {
+      cloudantClient.request(cfg, (err, result) => {
+        var data = {};
+        if (err) {
+          debug(err);
+        }
+        try {
+          data = JSON.parse(result.body);
+        } catch (e) {
+          debug(e);
+        }
+        var response = {
+          data: data,
+          status: result.statusCode,
+          statusText: result.statusMessage,
+          headers: result.headers,
+          config: cfg,
+          request: result.request
+        };
+        settle(resolve, reject, response);
+      });
+    });
   };
 
   var nanoOptions = {
     log: nanodebug,
     parseUrl: false, // always return server object
-    request: cloudantRequest,
+    requestDefaults: {
+      adapter: adapter
+    },
+    // request: cloudantRequest,
     url: creds.outUrl
   };
   if (options.cookie) {
