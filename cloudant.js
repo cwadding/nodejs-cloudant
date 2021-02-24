@@ -19,6 +19,7 @@ var Nano = require('nano');
 var debug = require('debug')('cloudant:cloudant');
 var nanodebug = require('debug')('nano');
 var settle = require('axios/lib/core/settle');
+var enhanceError = require('axios/lib/core/enhanceError');
 
 const Client = require('./lib/client.js');
 const BasePlugin = require('./plugins/base.js');
@@ -86,11 +87,7 @@ function Cloudant(options, callback) {
         var data = {};
         if (err) {
           debug('Cloudant request failed: %s', err.message);
-          var errResponse = Object.assign(toAxiosResponse(err.response), {
-            data: data,
-            config: cfg
-          });
-          settle(resolve, reject, errResponse);
+          settle(resolve, reject, enhanceError(err, cfg, err.code, err.request, err.response));
           return;
         }
         try {
