@@ -77,9 +77,12 @@ function Cloudant(options, callback) {
   debug('Creating Cloudant client with options: %j', options);
   var cloudantClient = new Client(options);
   var adapter = function(cfg) {
-    cfg.url = cfg.url + '?' + cfg.paramsSerializer(cfg.params);
     return new Promise(function(resolve, reject) {
-      cloudantClient.request(cfg, (err, result) => {
+      cloudantClient.request(Object.assign({}, cfg, {
+        url: cfg.url + '?' + cfg.paramsSerializer(cfg.params),
+        body: cfg.data,
+        agent: cfg.httpsAgent
+      }), (err, result) => {
         var data = {};
         if (err) {
           debug('Cloudant request failed: %s', err.message);
